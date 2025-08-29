@@ -36,33 +36,36 @@ BUILD_DIR := build/$(PLATFORM)
 S_SOURCES = src/arch/riscv/common/entry.S \
             src/arch/riscv/common/context.S
 
-# 플랫폼 종속 C 소스 파일
-C_SOURCES = src/arch/riscv/platform/qemu-virt/uart.c \
-            src/arch/riscv/platform/qemu-virt/clint.c \
-            src/arch/riscv/platform/qemu-virt/platform.c \
-            src/arch/riscv/platform/qemu-virt/hal_impl.c
+# 커널 및 아키텍처 C 소스 파일
+SRC_C_SOURCES = src/arch/riscv/platform/qemu-virt/uart.c \
+                src/arch/riscv/platform/qemu-virt/clint.c \
+                src/arch/riscv/platform/qemu-virt/platform.c \
+                src/arch/riscv/platform/qemu-virt/hal_impl.c \
+                src/arch/riscv/common/trap.c \
+                src/kernel/memory.c \
+                src/kernel/interrupt.c \
+                src/kernel/time.c \
+                src/kernel/event.c \
+                src/kernel/task.c \
+                src/kernel/syscall.c \
+                src/kernel/user.c \
+                src/kernel/scheduler.c \
+                src/kernel/printk.c \
+                src/kernel/kernel.c
 
-# 아키텍처 공통 C 소스 파일
-C_SOURCES += src/arch/riscv/common/trap.c
-
-# 커널 C 소스 파일 (플랫폼 독립)
-C_SOURCES += src/kernel/memory.c \
-             src/kernel/interrupt.c \
-             src/kernel/time.c \
-             src/kernel/event.c \
-             src/kernel/task.c \
-             src/kernel/syscall.c \
-             src/kernel/user.c \
-             src/kernel/scheduler.c \
-             src/kernel/kernel.c
-
+# 최소 라이브러리 C 소스 파일
+LIBS_C_SOURCES = libs/libc-minimal/string.c \
+                 libs/libc-minimal/stdio.c
 
 
 # 5. 오브젝트 파일 정의 (Object Files)
 # ----------------------------------------------------------------------------
 # 각 소스 파일에 대응하는 오브젝트 파일 경로를 `build` 디렉토리 하위로 지정합니다.
-OBJS := $(patsubst src/%.c, $(BUILD_DIR)/%.o, $(C_SOURCES))
-OBJS += $(patsubst src/%.S, $(BUILD_DIR)/%.o, $(S_SOURCES))
+SRC_OBJS := $(patsubst src/%.c, $(BUILD_DIR)/src/%.o, $(SRC_C_SOURCES))
+SRC_OBJS += $(patsubst src/%.S, $(BUILD_DIR)/src/%.o, $(S_SOURCES))
+LIBS_OBJS := $(patsubst libs/%.c, $(BUILD_DIR)/libs/%.o, $(LIBS_C_SOURCES))
+
+OBJS := $(SRC_OBJS) $(LIBS_OBJS)
 
 
 # 6. 최종 타겟 정의 (Final Target)
@@ -88,14 +91,20 @@ $(TARGET_ELF): $(OBJS)
 	@echo "  LD      $@"
 	@$(CC) $(CFLAGS) $(LDFLAGS) $(OBJS) -o $@
 
-# C 소스 파일을 오브젝트 파일로 컴파일하는 규칙
-$(BUILD_DIR)/%.o: src/%.c
+# src/ 디렉토리의 C 소스 파일을 컴파일하는 규칙
+$(BUILD_DIR)/src/%.o: src/%.c
 	@echo "  CC      $@"
 	@mkdir -p $(dir $@)
 	@$(CC) $(CFLAGS) -c $< -o $@
 
-# Assembly 소스 파일을 오브젝트 파일로 컴파일하는 규칙
-$(BUILD_DIR)/%.o: src/%.S
+# libs/ 디렉토리의 C 소스 파일을 컴파일하는 규칙
+$(BUILD_DIR)/libs/%.o: libs/%.c
+	@echo "  CC      $@"
+	@mkdir -p $(dir $@)
+	@$(CC) $(CFLAGS) -c $< -o $@
+
+# src/ 디렉토리의 Assembly 소스 파일을 컴파일하는 규칙
+$(BUILD_DIR)/src/%.o: src/%.S
 	@echo "  AS      $@"
 	@mkdir -p $(dir $@)
 	@$(CC) $(AFLAGS) -c $< -o $@

@@ -7,10 +7,11 @@
 #define _NEUROOS_P_SYSCALL_H
 
 // 시스템 콜 번호 정의
-#define SYS_kputs 1
-#define SYS_sleep 2
-#define SYS_event_wait 3
+#define SYS_kputs        1
+#define SYS_sleep        2
+#define SYS_event_wait   3
 #define SYS_event_signal 4
+#define SYS_putchar      5
 
 // 순환 참조를 피하기 위해 구조체 전방 선언
 struct trapframe;

@@ -3,9 +3,9 @@
  * @author Gemini
  */
 
-#include "kernel/event.h"
-#include "kernel/task.h"
-#include "kernel/scheduler.h"
+#include <kernel/event.h>
+#include <kernel/task.h>
+#include <kernel/scheduler.h>
 #include "arch/riscv/common/riscv.h"
 
 // 외부 TCB 배열 및 현재 태스크 포인터 참조

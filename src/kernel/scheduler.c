@@ -3,8 +3,8 @@
  * @author Gemini
  */
 
-#include "kernel/scheduler.h"
-#include "kernel/task.h"
+#include <kernel/scheduler.h>
+#include <kernel/task.h>
 
 // 외부에서 정의된 TCB 배열과 swtch 함수 참조
 extern struct task tasks[KCONF_MAX_TASKS];

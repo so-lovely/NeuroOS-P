@@ -1,107 +1,88 @@
-/*
- * NeuroOS-P Kernel Main Entry
- * 
+/**
+ * @file kernel.c
+ * @brief Main entry point for the NeuroOS-P kernel.
  * @author Gemini
  */
 
-#include "kernel/kconfig.h"
-#include "kernel/types.h"
+#include <kernel/printk.h>
+#include <kernel/kconfig.h>
+#include <kernel/types.h>
 #include "arch/riscv/common/riscv.h"
-#include "arch/riscv/platform/qemu-virt/uart.h"
 #include "arch/riscv/platform/qemu-virt/clint.h"
 
-#include "kernel/memory.h"
-#include "kernel/interrupt.h"
-#include "kernel/task.h"
-#include "kernel/scheduler.h"
-#include "include/user.h" // sys_kputs를 사용하기 위해 추가
+#include <kernel/memory.h>
+#include <kernel/interrupt.h>
+#include <kernel/task.h>
+#include <kernel/scheduler.h>
+#include <kernel/event.h>
 
-// 디버그 출력 함수를 UART 출력으로 연결
-void kputhex(uint64_t h);
-void kputs(const char *h);
+// --- External Declarations for Kernel-Internal API ---
+extern uint64_t time_get_ticks(void);
+extern struct task *current_task;
 
-// 테스트용 태스크 함수 선언
+// --- Test Task Prototypes ---
 void waiter_task(void);
 void signaler_task(void);
 
 #define TEST_EVENT 1
 
 /**
- * @brief NeuroOS-P 커널의 C 코드 진입점 (Entry Point)
+ * @brief The C entry point for the NeuroOS-P kernel.
  */
 void kmain(void)
 {
-    uart_init();
-    kputs("\n[NeuroOS-P] Welcome!\n");
+    // Note: uart_init() is called by the boot assembly code.
+    printk("\n[NeuroOS-P] Welcome!\n");
 
-    kputs("[Kernel] Initializing memory manager...\n");
+    printk("[Kernel] Initializing memory manager...\n");
     memory_init();
-    kputs("[Kernel] Memory manager initialized.\n");
+    printk("[Kernel] Memory manager initialized.\n");
 
-    kputs("[Kernel] Initializing task manager...\n");
+    printk("[Kernel] Initializing task manager...\n");
     task_init();
-    kputs("[Kernel] Task manager initialized.\n");
+    printk("[Kernel] Task manager initialized.\n");
 
-    kputs("[Kernel] Initializing scheduler...\n");
+    printk("[Kernel] Initializing scheduler...\n");
     scheduler_init();
-    kputs("[Kernel] Scheduler initialized.\n");
+    printk("[Kernel] Scheduler initialized.\n");
 
-    kputs("[Kernel] Creating event test tasks...\n");
+    printk("[Kernel] Creating event test tasks...\n");
     task_create(waiter_task);
     task_create(signaler_task);
-    kputs("[Kernel] Test tasks created.\n");
+    printk("[Kernel] Test tasks created.\n");
 
-    kputs("[Kernel] Initializing interrupt controller...\n");
-    // 모든 서브시스템이 준비된 후, 마지막에 인터럽트를 활성화합니다.
-    w_mstatus(r_mstatus() | MSTATUS_MIE); // 전역 인터럽트 활성화
-    w_mie(r_mie() | MIE_MTIE);         // 머신 타이머 인터럽트 활성화
-    clint_timer_init();                  // 첫 타이머 인터럽트 예약
-    kputs("[Kernel] Interrupts enabled. Starting scheduler...\n");
+    printk("[Kernel] Initializing interrupt controller...\n");
+    interrupt_init();
+    printk("[Kernel] Interrupts enabled. Starting scheduler...\n");
 
     schedule();
 
-    // 이 아래 코드는 스케줄러가 정상 동작하면 절대 실행되지 않아야 합니다.
-    kputs("[FATAL] Returned to kmain after scheduler start!\n");
+    // This part of the code should never be reached if the scheduler works correctly.
+    printk("[FATAL] Returned to kmain after scheduler start!\n");
     for(;;);
 }
 
-// --- 이벤트 테스트 태스크 ---
+// --- Event Test Tasks (Simulating User-Space) ---
 void waiter_task(void)
 {
-    kputs("Waiter: Waiting for event 1...\n");
-    event_wait(TEST_EVENT);
-    kputs("Waiter: Event 1 received! Resuming.\n");
+    printk("Waiter: Waiting for event %d...\n", TEST_EVENT);
+    sys_event_wait(TEST_EVENT);
+    printk("Waiter: Event %d received! Resuming.\n", TEST_EVENT);
     for (;;);
 }
 
 void signaler_task(void)
 {
-    kputs("Signaler: Going to sleep for 2 seconds...\n");
-    sleep(20); // 2초 대기
+    printk("Signaler: Going to sleep for 2 seconds...\n");
+    // Directly use kernel functionality instead of syscall wrapper
+    uint64_t current_ticks = time_get_ticks();
+    current_task->wakeup_tick = current_ticks + 20; // 20 ticks (2s @ 10Hz)
+    current_task->state = TASK_STATE_SLEEPING;
+    schedule();
 
-    kputs("Signaler: Woke up, signaling event 1.\n");
-    event_signal(TEST_EVENT);
+    printk("Signaler: Woke up, signaling event %d.\n", TEST_EVENT);
+    sys_event_signal(TEST_EVENT);
 
-    // 한번만 실행하고 종료
+    // This task runs only once.
     for (;;);
-}
-
-
-void kputs(const char *s)
-{
-    uart_puts(s);
-}
-
-// 64비트 정수를 16진수 문자열로 출력하는 헬퍼 함수
-void kputhex(uint64_t h)
-{
-    char *hex = "0123456789abcdef";
-    char buf[17];
-    buf[16] = '\0';
-    for (int i = 15; i >= 0; i--) {
-        buf[i] = hex[h & 0xF];
-        h >>= 4;
-    }
-    kputs("0x");
-    kputs(buf);
 }

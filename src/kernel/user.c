@@ -3,8 +3,8 @@
  * @author Gemini
  */
 
-#include "kernel/types.h"
-#include "kernel/syscall.h"
+#include <kernel/types.h>
+#include <kernel/syscall.h>
 #include "include/user.h"
 
 void sys_kputs(const char *s)

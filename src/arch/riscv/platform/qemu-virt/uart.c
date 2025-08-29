@@ -3,7 +3,7 @@
  * @author Gemini
  */
 
-#include "kernel/types.h"
+#include <kernel/types.h>
 #include "uart.h"
 
 /*

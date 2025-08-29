@@ -1,40 +1,44 @@
-/*
- * NeuroOS-P Interrupt Subsystem
+/**
+ * @file interrupt.c
+ * @brief Interrupt subsystem initialization for NeuroOS-P.
  * @author Gemini
  */
 
-#include "kernel/interrupt.h"
+#include <kernel/printk.h>
+#include <kernel/interrupt.h>
 #include "arch/riscv/common/riscv.h"
 #include "arch/riscv/platform/qemu-virt/clint.h"
 
-// 디버깅용
-void kputs(const char *s);
-void kputhex(uint64_t h);
-
-// 어셈블리에 정의될 트랩 진입점 함수의 주소
+// Address of the assembly-level trap entry function.
 extern void trap_entry(void);
 
+/**
+ * @brief Initializes the core interrupt handling mechanisms.
+ * 
+ * This function sets up the machine trap vector (mtvec) to point to the
+ * low-level trap entry point and enables machine-level timer interrupts.
+ * Global interrupts are enabled last.
+ */
 void interrupt_init(void)
 {
     uint64_t trap_entry_addr = (uint64_t)trap_entry;
-    kputs("  trap_entry addr: "); kputhex(trap_entry_addr); kputs("\n");
+    printk("  trap_entry addr: 0x%x\n", trap_entry_addr);
 
-    // 1. 트랩 핸들러 주소 설정
-    kputs("  1. writing mtvec...\n");
+    // 1. Set the trap handler address.
+    printk("  1. writing mtvec...\n");
     w_mtvec(trap_entry_addr);
 
-    // 2. 첫 타이머 인터럽트 예약 (및 기존 상태 클리어)
-    kputs("  2. initializing clint timer...\n");
+    // 2. Schedule the first timer interrupt (and clear any pending status).
+    printk("  2. initializing clint timer...\n");
     clint_timer_init();
 
-    // 3. 머신 타이머 인터럽트 활성화
-    kputs("  3. enabling MTIE in mie...\n");
+    // 3. Enable machine timer interrupts.
+    printk("  3. enabling MTIE in mie...\n");
     w_mie(r_mie() | MIE_MTIE);
 
-    // 4. 전역 인터럽트 활성화 (가장 마지막에 수행)
-    kputs("  4. enabling MIE in mstatus...\n");
+    // 4. Enable global interrupts (should be done last).
+    printk("  4. enabling MIE in mstatus...\n");
     w_mstatus(r_mstatus() | MSTATUS_MIE);
 
-    kputs("  -> all interrupts initialized.\n");
+    printk("  -> all interrupts initialized.\n");
 }
-

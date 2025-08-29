@@ -3,8 +3,8 @@
  * @author Gemini
  */
 
-#include "kernel/task.h"
-#include "kernel/memory.h"
+#include <kernel/task.h>
+#include <kernel/memory.h>
 
 // 모든 태스크의 TCB를 저장하는 배열
 struct task tasks[KCONF_MAX_TASKS];

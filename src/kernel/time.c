@@ -3,9 +3,9 @@
  * @author Gemini
  */
 
-#include "kernel/types.h"
-#include "kernel/task.h"
-#include "kernel/kconfig.h"
+#include <kernel/types.h>
+#include <kernel/task.h>
+#include <kernel/kconfig.h>
 
 // 외부 TCB 배열 참조
 extern struct task tasks[KCONF_MAX_TASKS];

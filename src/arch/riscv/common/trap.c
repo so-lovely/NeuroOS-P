@@ -1,68 +1,68 @@
-/*
- * RISC-V C-level Trap Handler
+/**
+ * @file trap.c
+ * @brief C-level trap handler for RISC-V.
  * @author Gemini
  */
 
-#include "kernel/types.h"
+#include <kernel/printk.h>
+#include <kernel/types.h>
 #include "arch/riscv/common/riscv.h"
 #include "arch/riscv/common/trapframe.h"
 #include "arch/riscv/platform/qemu-virt/clint.h"
-#include "kernel/syscall.h"
-#include "kernel/task.h" // struct task를 사용하기 위해 추가
+#include <kernel/syscall.h>
+#include <kernel/task.h> // For struct task
 
-// 외부 함수 및 변수 선언
-void kputs(const char *s);
-void kputhex(uint64_t h);
+// External function and variable declarations
 void schedule(void);
 void time_tick_handler(void);
 extern struct task *current_task;
 
-// RISC-V에서 사용하는 mcause 코드 정의
+// RISC-V mcause code definitions
 // ----------------------------------------------------------------------------
-// 최상위 비트(XLEN-1)가 1이면 인터럽트, 0이면 예외입니다.
+// If the top bit (XLEN-1) is 1, it's an interrupt. Otherwise, it's an exception.
 #define MCAUSE_INTERRUPT_BIT (1UL << 63)
 
-// 인터럽트 원인 코드
+// Interrupt cause codes
 #define MCAUSE_MACHINE_TIMER_INTERRUPT (MCAUSE_INTERRUPT_BIT | 7)
 
-// 예외 원인 코드
+// Exception cause codes
 #define MCAUSE_ECALL_FROM_M_MODE 11
 
 
 /**
- * @brief 모든 종류의 트랩(인터럽트, 예외)이 최종적으로 호출하는 C 함수입니다.
+ * @brief The C function that all traps (interrupts, exceptions) eventually call.
  * 
- * 이 함수는 어셈블리 레벨의 트랩 진입점(trap_entry)에서 호출됩니다.
- * 트랩의 원인(mcause)을 분석하여 적절한 핸들러를 호출합니다.
+ * This function is called from the assembly-level trap entry point (trap_entry).
+ * It analyzes the cause of the trap (mcause) and calls the appropriate handler.
  */
 void trap_handler(struct trapframe *tf)
 {
     uint64_t mcause = r_mcause();
 
     if (mcause == MCAUSE_MACHINE_TIMER_INTERRUPT) {
-        // --- 머신 타이머 인터럽트 처리 ---
-        time_tick_handler(); // 시스템 틱을 처리 (시간 증가, 슬립 태스크 확인)
-        clint_timer_init();  // 다음 타이머 인터럽트를 예약합니다.
-        schedule();          // 스케줄러를 호출하여 강제 문맥 교환
+        // --- Machine Timer Interrupt Handling ---
+        time_tick_handler(); // Process the system tick (increment time, check sleeping tasks)
+        clint_timer_init();  // Schedule the next timer interrupt.
+        schedule();          // Call the scheduler for a forced context switch.
         return; 
     
     } else if (mcause == MCAUSE_ECALL_FROM_M_MODE) {
-        // --- 시스템 콜 처리 ---
-        // ecall 명령어는 4바이트이므로, mepc를 4 증가시켜
-        // ecall 다음 명령어부터 실행되도록 합니다.
+        // --- System Call Handling ---
+        // The ecall instruction is 4 bytes, so increment mepc by 4
+        // to continue execution at the instruction after ecall.
         w_mepc(r_mepc() + 4);
         
-        // 시스템 콜 디스패처를 호출합니다.
+        // Call the system call dispatcher.
         syscall(tf);
         return;
     }
 
-    // --- 처리되지 않은 예외 또는 인터럽트 ---
-    kputs("\n--- UNHANDLED TRAP ---");
-    kputs("\n mcause: "); kputhex(mcause);
-    kputs("\n mepc:   "); kputhex(r_mepc());
-    kputs("\n----------------------\n");
+    // --- Unhandled Exception or Interrupt ---
+    printk("\n--- UNHANDLED TRAP ---\n");
+    printk(" mcause: 0x%x\n", mcause);
+    printk(" mepc:   0x%x\n", r_mepc());
+    printk("----------------------\n");
 
-    // 시스템을 멈춥니다.
+    // Halt the system.
     for(;;);
 }
